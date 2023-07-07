@@ -1,115 +1,192 @@
 <html>
-  <head>
-    <!-- deck.gl standalone bundle -->
-    <script src="https://unpkg.com/deck.gl@^8.8.0/dist.min.js"></script>
 
-    <!-- OpenLayers dependencies -->
-    <script src="https://cdn.jsdelivr.net/npm/ol@v7.1.0/dist/ol.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.1.0/ol.css" />
+<head>
+  <!-- deck.gl standalone bundle -->
+  <script src="https://unpkg.com/deck.gl@^8.4.0/dist.min.js"></script>
+  <script src="https://unpkg.com/@deck.gl/carto@^8.4.0/dist.min.js"></script>
 
-    <style type="text/css">
-      body {
-        margin: 0;
-        padding: 0;
+  <script src="https://libs.cartocdn.com/mapbox-gl/v1.13.0/mapbox-gl.js"></script>
+  <link href="https://libs.cartocdn.com/mapbox-gl/v1.13.0/mapbox-gl.css" rel="stylesheet" />
+
+  <style type="text/css">
+    body {
+      margin: 0;
+      padding: 0;
       }
+
       #map {
-        width: 100vw;
-        height: 100vh;
+          width: 100vw;
+          height: 100vh;
       }
-    </style>
-  </head>
 
-  <body>
-    <div id="map"></div>
-  </body>
+      header {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 40px;
+          z-index: 9999;
+      }
 
-  <script type="text/javascript">
-    // source: Natural Earth http://www.naturalearthdata.com/ via geojson.xyz
-    const AIR_PORTS =
-      'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_10m_airports.geojson';
+      header> nav > ul {
+          display: flex;
+          list-style: none;
+      }
 
-    const layers = [
-      new deck.GeoJsonLayer({
-        id: 'airports',
-        data: AIR_PORTS,
-        // Styles
-        filled: true,
-        pointRadiusMinPixels: 2,
-        pointRadiusScale: 2000,
-        getPointRadius: f => 11 - f.properties.scalerank,
-        getFillColor: [200, 0, 80, 180],
-        // Interactive props
-        pickable: true,
-        autoHighlight: true,
-        onClick: info =>
-          // eslint-disable-next-line
-          info.object && alert(`${info.object.properties.name} (${info.object.properties.abbrev})`)
+      header> nav > ul li{
+          margin: 6px;
+      }
+
+      header> nav > ul li a{
+          color: #fff;
+      }
+  </style>
+</head>
+
+<body>
+  <header>
+    <nav>
+        <ul>
+            <li>
+                <a href="/">Trips layer</a>
+            </li>
+            <li><a href="/polygon.html">Polygon</a></li>
+        </ul>
+    </nav>
+</header>
+  <div id="map"></div>
+</body>
+
+<script type="text/javascript">
+  const ambientLight = new deck.AmbientLight({
+    color: [255, 255, 255],
+    intensity: 1.0
+  });
+
+  const DATA_URL = {
+    BUILDINGS:
+      'https://raw.githubusercontent.com/visgl/deck.gl-data/master/examples/trips/buildings.json', // eslint-disable-line
+    TRIPS: 'https://raw.githubusercontent.com/visgl/deck.gl-data/master/examples/trips/trips-v7.json' // eslint-disable-line
+  };
+
+  const pointLight = new deck.PointLight({
+    color: [255, 255, 255],
+    intensity: 2.0,
+    position: [-74.05, 40.7, 8000]
+  });
+
+  const lightingEffect = new deck.LightingEffect({ ambientLight, pointLight });
+
+  const material = {
+    ambient: 0.1,
+    diffuse: 0.6,
+    shininess: 32,
+    specularColor: [60, 64, 70]
+  };
+
+  const theme = {
+    buildingColor: [74, 80, 87],
+    trailColor0: [253, 128, 93],
+    trailColor1: [23, 184, 190],
+    material,
+    effects: [lightingEffect]
+  };
+
+  const LOOP_LENGTH = 1800;
+  const ANIMATION_SPEED = 0.4;
+
+  async function initialize() {
+    deck.carto.setDefaultCredentials({
+      username: 'public',
+      apiKey: 'default_public',
+    });
+
+    // Fetch Data from CARTO
+    // Notice that you can use any Deck.gl layer with CARTO datasets getting GeoJSON data from CARTO's API. This method is recommended for complex layers with datasets below 50Mb
+    const tripsUrl = 'https://raw.githubusercontent.com/visgl/deck.gl-data/master/examples/trips/trips-v7.json';
+    const geojsonTripsData = await fetch(tripsUrl).then(response => response.json());
+    // TripsLayer needs data in the following format
+    const layerData = geojsonTripsData.map(f => ({
+      vendor: f.vendor,
+      timestamps: f.timestamps,
+      path: f.path[0]
+    }));
+
+    const staticLayers = [
+      // This is only needed when using shadow effects
+      new deck.PolygonLayer({
+        id: 'ground',
+        data: [
+          [
+            [-74.0, 40.7],
+            [-74.02, 40.7],
+            [-74.02, 40.72],
+            [-74.0, 40.72]
+          ]
+        ],
+        getPolygon: f => f,
+        stroked: false,
+        getFillColor: [0, 0, 0, 0]
       }),
-      new deck.ArcLayer({
-        id: 'arcs',
-        data: AIR_PORTS,
-        dataTransform: d => d.features.filter(f => f.properties.scalerank < 4),
-        // Styles
-        getSourcePosition: f => [-0.4531566, 51.4709959], // London
-        getTargetPosition: f => f.geometry.coordinates,
-        getSourceColor: [0, 128, 200],
-        getTargetColor: [200, 0, 80],
-        getWidth: 1
+      new deck.PolygonLayer({
+        id: 'buildings',
+        data: DATA_URL.BUILDINGS,
+        extruded: true,
+        wireframe: true,
+        opacity: 0.5,
+        getElevation: f => f.properties.height,
+        getFillColor: [74, 80, 87],
+        material: theme.material
       })
     ];
 
-    // Create deck instance
-    const deckGL = new deck.Deck({
+    // Create Deck.GL map
+    const deckgl = new deck.DeckGL({
+      container: 'map',
+      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
       initialViewState: {
-        longitude: 0,
-        latitude: 0,
-        zoom: 1
+        longitude: -74,
+        latitude: 40.73,
+        zoom: 12,
+        pitch: 45,
+        bearing: 0
       },
-      controller: false,
-      parent: document.getElementById('map'),
-      style: {
-        pointerEvents: 'none',
-        'z-index': 1
-      },
-      layers
+      controller: true,
+      layers: staticLayers,
+      effects: theme.effects
     });
+    let time = 0;
 
-    // Sync deck view with OL view
-    const deckLayer = new ol.layer.Layer({
-      render: function ({size, viewState}) {
-        const [width, height] = size;
-        const [longitude, latitude] = ol.proj.toLonLat(viewState.center);
-        const zoom = viewState.zoom - 1;
-        const bearing = (-viewState.rotation * 180) / Math.PI;
-        const deckViewState = {
-          bearing,
-          longitude,
-          latitude,
-          zoom
-        };
-        deckGL.setProps({
-          width,
-          height,
-          viewState: deckViewState
-        });
-        deckGL.redraw();
-      }
-    });
+    function animate() {
+      time = (time + ANIMATION_SPEED) % LOOP_LENGTH;
+      window.requestAnimationFrame(animate);
+    }
 
-    // Create OL map with native OSM basemap and deck.gl overlay
-    const view = new ol.View({
-      center: ol.proj.fromLonLat([0, 0]),
-      zoom: 1
-    });
-    const map = new ol.Map({
-      target: 'map',
-      view,
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM()
-        }),
-        deckLayer
-      ]
-    });
-  </script>
+    setInterval(() => {
+      deckgl.setProps({
+        layers: [
+          ...staticLayers,
+          new deck.TripsLayer({
+            id: 'trips-layer',
+            data: DATA_URL.TRIPS,
+            getPath: d => d.path,
+            getTimestamps: d => d.timestamps,
+            getColor: d => (d.vendor === 0 ? theme.trailColor0 : theme.trailColor1),
+            opacity: 0.3,
+            widthMinPixels: 2,
+            rounded: true,
+            trailLength: 180,
+            currentTime: time,
+            shadowEnabled: false
+          })
+        ]
+      });
+    }, 50);
+
+    window.requestAnimationFrame(animate);
+  }
+
+  initialize(); 
+</script>
+
 </html>
