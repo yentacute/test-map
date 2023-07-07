@@ -38,7 +38,7 @@
       }
 
       header> nav > ul li a{
-          color: #fff;
+          color: #333;
       }
   </style>
 </head>
@@ -59,7 +59,7 @@
 
 <script type="text/javascript">
   const ambientLight = new deck.AmbientLight({
-    color: [255, 255, 255],
+    color: [255,0,255],
     intensity: 1.0
   });
 
@@ -70,7 +70,7 @@
   };
 
   const pointLight = new deck.PointLight({
-    color: [255, 255, 255],
+    color: [124, 0, 0],
     intensity: 2.0,
     position: [-74.05, 40.7, 8000]
   });
@@ -85,9 +85,9 @@
   };
 
   const theme = {
-    buildingColor: [74, 80, 87],
-    trailColor0: [253, 128, 93],
-    trailColor1: [23, 184, 190],
+    buildingColor: [85,0,255],
+    trailColor0: [255,0,0],
+    trailColor1: [0,17,255],
     material,
     effects: [lightingEffect]
   };
@@ -135,7 +135,7 @@
         wireframe: true,
         opacity: 0.5,
         getElevation: f => f.properties.height,
-        getFillColor: [74, 80, 87],
+        getFillColor: [0,0,0],
         material: theme.material
       })
     ];
@@ -143,7 +143,7 @@
     // Create Deck.GL map
     const deckgl = new deck.DeckGL({
       container: 'map',
-      mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-nolabels-gl-style/style.json',
+      mapStyle: 'https://basemaps.cartocdn.com/gl/positron-nolabels-gl-style/style.json',
       initialViewState: {
         longitude: -74,
         latitude: 40.73,
